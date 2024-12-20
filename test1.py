@@ -18,5 +18,4 @@ print("음성 출력 완료!")
 
 # 사용 후 파일 삭제
 os.remove("output.mp3")
-
-print("aaa")
+print("aaaaaaa")

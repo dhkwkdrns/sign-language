@@ -1,33 +1,44 @@
 import serial
 from gtts import gTTS
 import os
+import threading
 from playsound import playsound
 
-# 아두이노와 연결된 시리얼 포트 설정 (아두이노 IDE에서 확인한 포트를 입력하세요)
-arduino_port = "COM3"  # Windows의 경우 "COM3", macOS/Linux의 경우 "/dev/ttyUSB0"
-baud_rate = 9600       # 아두이노와 동일한 보드레이트 설정
-ser = serial.Serial(arduino_port, baud_rate)
+# COM3 포트 설정
+ser = serial.Serial('COM3', 9600)
 
-print("아두이노와 연결 중...")
+# 이전 요청 저장 변수
+last_request = None
+
+def play_tts(request_text):
+    # TTS 생성 및 재생
+    tts = gTTS(text=request_text, lang='ko')
+    filename = "output.mp3"
+    tts.save(filename)
+
+    print(f"TTS 재생 중: {request_text}")
+    playsound(filename)
+
+    # MP3 파일 삭제
+    os.remove(filename)
+
+def handle_request():
+    global last_request
+    while True:
+        if ser.in_waiting > 0:  # 시리얼 데이터가 있으면 읽기
+            incoming_data = ser.readline().decode('utf-8').strip()
+            print(f"받은 요청: {incoming_data}")
+
+            # 이전 요청과 다를 경우에만 처리
+            if incoming_data != last_request:
+                last_request = incoming_data
+
+                # 새로운 요청을 처리하는 스레드 생성
+                tts_thread = threading.Thread(target=play_tts, args=(incoming_data,))
+                tts_thread.start()
 
 try:
-    while True:
-        # 시리얼 데이터가 도착하면 읽기
-        if ser.in_waiting > 0:
-            message = ser.readline().decode('utf-8').strip()  # 데이터 읽기 및 문자열로 변환
-            print(f"받은 데이터: {message}")
-            
-            # GTTS를 사용해 음성 파일 생성
-            tts = gTTS(text=message, lang='ko')  # lang='ko'는 한국어 설정
-            tts.save("output.mp3")
-            print("음성 파일 생성 완료!")
-
-            # 음성 파일 재생
-            playsound("output.mp3")
-            print("음성 출력 완료!")
-
-            # 사용 후 파일 삭제 (필요시 유지 가능)
-            os.remove("output.mp3")
+    handle_request()
 
 except KeyboardInterrupt:
     print("프로그램 종료")
